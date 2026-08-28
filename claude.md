@@ -12,7 +12,7 @@ Harness pessoal do time IA AUTOMATION: Claude Code como motor, plugado nos repos
 ```
 TOOLS/
 ├── claude.md                      # este arquivo
-├── .gitignore                     # ignora config local (settings/jira/boards.json, settings/serena/.env, etc.) e __pycache__/
+├── .gitignore                     # ignora config local (settings/jira/boards.json, settings/jira/links.json, settings/jira/refinements/, settings/serena/.env, etc.) e __pycache__/
 ├── .mcp.json                       # registro do MCP Serena (project-scope, versionado)
 ├── .claude/settings.json          # registro dos hooks (project-level)
 ├── hooks/
@@ -23,8 +23,11 @@ TOOLS/
 │   └── config/git-guard.json      # config da guardrail de git
 ├── settings/                      # configs do harness (por integração/subsistema)
 │   ├── jira/boards.json           # boards Jira do usuário (cloudId + projectKey) — gitignored, criado pela skill no 1º uso
+│   ├── jira/links.json            # vínculo repo local ↔ issue key — gitignored, criado pela skill jira-refine no 1º uso
+│   ├── jira/refinements/          # cache dos refinamentos gerados por issue — gitignored, criado pela skill jira-refine
 │   └── serena/                    # docker-compose do MCP Serena (config/.env locais são gitignored)
-└── .claude/skills/jira-sprint/     # skill que lê/cria settings/jira/boards.json e consulta a sprint atual
+├── .claude/skills/jira-sprint/     # skill que lê/cria settings/jira/boards.json e consulta a sprint atual
+└── .claude/skills/jira-refine/     # skill que gera refinamento de negócio/técnico de uma issue (leitura only no Jira)
 ```
 
 ## Guardrails
@@ -52,6 +55,14 @@ Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrã
 - Se `settings/jira/boards.json` não existir, a skill cria (resolvendo `cloudId` via `getAccessibleAtlassianResources`) e pergunta o primeiro board pra cadastrar — cada pessoa que usar o harness cadastra os próprios boards no primeiro uso.
 - Requer autenticação do MCP "claude.ai Atlassian Rovo" ativa na sessão (`/mcp` pra logar).
 - Adicionar board novo: só editar `settings/jira/boards.json` (ou pedir pra skill cadastrar), sem tocar na skill.
+
+### Jira — refinamento de task (jira-refine)
+
+- Skill `jira-refine` (`.claude/skills/jira-refine/SKILL.md`) vincula o repo local a uma issue Jira (`settings/jira/links.json`, gitignored: `{ "links": [{ "repoPath": "...", "issueKey": "..." }] }`) e gera, a partir da issue + comentários, um refinamento de negócio e depois um técnico (usando Serena — `activate_project` no repo alvo, `find_symbol`/`find_referencing_symbols`/`get_symbols_overview` — pra mapear módulos/arquivos impactados), com clarificação pontual (`AskUserQuestion`) só quando sobra ambiguidade real.
+- Reaproveita `cloudId`/`boards.json` da skill `jira-sprint` — não duplica resolução de `cloudId`.
+- Cache dos refinamentos em `settings/jira/refinements/<CARD_KEY>/` (gitignored): `raw.json`, `business.md`, `technical.md`, `final-<uuid>.md` (histórico preservado — cada rodada gera um novo `final-<uuid>.md`).
+- **Somente leitura no Jira** — a skill nunca chama tool de escrita do Atlassian Rovo (`editJiraIssue`, `addCommentToJiraIssue`, `createIssueLink`, `transitionJiraIssue`, etc.), nem na task nem no épico. O refinamento é um artefato pro harness/agente (ponto de partida pra desenvolver ou delegar a task), não um artefato pro Jira.
+- Mesma exigência de auth do MCP Atlassian Rovo da `jira-sprint`.
 
 ### Serena — navegação semântica de código (MCP)
 
