@@ -7,6 +7,7 @@ Harness pessoal do time IA AUTOMATION: Claude Code como motor, plugado nos repos
 - Tudo que for criado para o harness (hooks, scripts, config, skills) fica dentro desta pasta (`TOOLS/`). Nada em `~/.claude/` — só o registro mínimo que já vem por padrão.
 - Config geral do harness (fora do escopo específico de um hook) fica em `settings/`, organizada por integração/subsistema (ex.: `settings/jira/`).
 - Cada hook/skill/setup mais complexo tem seu próprio `README.md` no diretório (detalhe de implementação, gotchas, testes) — este arquivo é o índice, não repete esse conteúdo. Ao mexer num hook/skill, abra o `README.md`/`SKILL.md` dele antes de assumir como funciona.
+- **Nunca publicar link público** (`ShareOnboardingGuide`, `Artifact`, ou qualquer outro mecanismo que gere URL acessível fora desta máquina) sem o usuário pedir essa publicação explicitamente, naquele momento. Gerar/editar o conteúdo local (`ONBOARDING.md`, artefato em arquivo, etc.) é normal; publicar é ação separada que sempre exige pedido explícito, nunca inferido de um "pode fazer" genérico sobre o conteúdo.
 
 ## Estrutura
 
@@ -19,8 +20,10 @@ TOOLS/
 ├── hooks/
 │   ├── git-branch-guard/          # guardrail de git — detalhe em hooks/git-branch-guard/README.md
 │   ├── jira-write-guard/          # guardrail de escrita no Jira — detalhe em hooks/jira-write-guard/README.md
+│   ├── secret-guard/              # guardrail de secret em git add/commit — detalhe em hooks/secret-guard/README.md
+│   ├── public-link-guard/         # guardrail de publicação de link público — detalhe em hooks/public-link-guard/README.md
 │   ├── serena-reminder/           # hook SessionStart: lembra de usar mcp__serena__* em código real
-│   └── config/                    # git-guard.json, jira-write-guard.json
+│   └── config/                    # git-guard.json, jira-write-guard.json, secret-guard.json, public-link-guard.json
 ├── settings/                      # configs do harness (por integração/subsistema)
 │   ├── jira/boards.json           # boards Jira do usuário — gitignored, criado pela skill no 1º uso
 │   ├── jira/links.json            # vínculo repo local ↔ issue key — gitignored, criado pela skill jira-refine
@@ -47,6 +50,18 @@ Detalhe (tokenizer, resolução de `-C`/`--git-dir`, limitação conhecida, test
 Hook `PreToolUse`/`mcp__.*Atlassian.*` (`hooks/jira-write-guard/jira_write_guard.py`, config `hooks/config/jira-write-guard.json`) nega qualquer chamada MCP que edite/comente/transicione issue do Jira — reforça a nível técnico a regra "somente leitura" da skill `jira-refine`. Confluence fica de fora (escrita opt-in dessa skill).
 
 Detalhe: **`hooks/jira-write-guard/README.md`**.
+
+### Secrets — bloqueio de env/credencial em git add/commit
+
+Hook `PreToolUse`/`Bash` (`hooks/secret-guard/secret_guard.py`, config `hooks/config/secret-guard.json`) nega `git add`/`git commit` se o arquivo bater com nome sensível (`.env`, `*.pem`, `*_rsa`, `*credentials*.json`, etc. — `.env.example` isento) **ou** se o conteúdo adicionado bater com padrão de secret (chave AWS, bloco de chave privada, `api_key/token/password = "..."`). Mensagem de negação nunca mostra o valor encontrado.
+
+Detalhe (como resolve o que checar em `add -A`/`commit -a`, testes): **`hooks/secret-guard/README.md`**.
+
+### Link público — bloqueio de publicação
+
+Hook `PreToolUse`/`ShareOnboardingGuide` (`hooks/public-link-guard/public_link_guard.py`, config `hooks/config/public-link-guard.json`) nega qualquer publicação (`check`/`create`/`update`) por padrão — só `delete` passa. Fail-safe **fechado**: config ausente/corrompido bloqueia (inverso dos outros guards deste harness). Reforça a regra da seção Regras acima especificamente pro `ShareOnboardingGuide`.
+
+Detalhe (como destravar de propósito): **`hooks/public-link-guard/README.md`**.
 
 ## Integrações
 
