@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/gabrielpaschoal/Documentos/TOOLS/hooks/git-branch-guard.sh"
+            "command": "/home/gabrielpaschoal/Documentos/TOOLS/hooks/bin/git-branch-guard"
           }
         ]
       }
