@@ -9,22 +9,29 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
 
 **Propósito**: virar o ponto de partida pra começar o desenvolvimento (ou delegar a task pra um agente) já com contexto de negócio + técnico mastigado — não é um artefato pro Jira, é um artefato pro harness.
 
-**Regra dura — somente leitura no Jira.** Esta skill nunca chama tool de escrita do Atlassian Rovo (`editJiraIssue`, `addCommentToJiraIssue`, `createIssueLink`, `transitionJiraIssue`, `addWorklogToJiraIssue`, etc.) — nem na task nem no épico. A única chamada ao Jira é leitura (`getJiraIssue`). Todo output (refinamentos, clarificações, vínculo repo↔issue) fica exclusivamente em cache local (`settings/jira/`).
+**Regra dura — somente leitura no Jira.** Esta skill nunca chama tool de escrita do Atlassian Rovo sobre a **task/épico** (`editJiraIssue`, `addCommentToJiraIssue`, `createIssueLink`, `transitionJiraIssue`, `addWorklogToJiraIssue`, etc.) — nem na task nem no épico. A única chamada ao Jira é leitura (`getJiraIssue`). Todo output fica em cache local (`settings/jira/`) por padrão.
+
+**Confluence é escrita opt-in, separada dessa regra.** Publicar o refinamento como página no Confluence (etapa 10) é uma ação diferente — visível pro time, fora do controle de versão local — e só acontece se o repo/link estiver explicitamente configurado pra isso (ver Config). Nunca publica por padrão, nunca pergunta de novo depois de configurado (nem depois de recusado).
 
 ## Config
 
 - `settings/jira/boards.json` (raiz do repo, gitignored, mesmo arquivo usado pela skill `jira-sprint`): guarda `cloudId`. Reaproveitar esse arquivo — não duplicar a lógica de resolução de `cloudId`. Se ainda não existir, faça o mesmo bootstrap da skill `jira-sprint` (resolve `cloudId` via `getAccessibleAtlassianResources`, perguntando ao usuário se vier mais de um site).
-- `settings/jira/links.json` (raiz do repo, gitignored — local, não compartilhado via git): mapeia repositório local → issue key, com destino opcional do refinamento.
+- `settings/jira/links.json` (raiz do repo, gitignored — local, não compartilhado via git): mapeia repositório local → issue key, com destino opcional do refinamento e publicação opcional no Confluence.
 
   ```json
   {
     "links": [
-      { "repoPath": "/caminho/absoluto/do/repo", "issueKey": "DA-123", "outputDir": "/caminho/opcional/onde/salvar" }
+      {
+        "repoPath": "/caminho/absoluto/do/repo",
+        "issueKey": "DA-123",
+        "outputDir": "/caminho/opcional/onde/salvar",
+        "confluence": { "enabled": true, "spaceId": "ENG", "parentId": "123456" }
+      }
     ]
   }
   ```
 
-  `repoPath` é o toplevel do repo (`git rev-parse --show-toplevel`), pra casar com qualquer subpasta de onde a skill for chamada. `outputDir` é opcional: se ausente, usa o default (`settings/jira/refinements/` na raiz do `TOOLS/`); se presente, os arquivos de cache vão pra `<outputDir>/<CARD_KEY>/` (por exemplo, dentro do próprio repo alvo — útil quando o refinamento é feito pra um agente que já vai trabalhar lá).
+  `repoPath` é o toplevel do repo (`git rev-parse --show-toplevel`), pra casar com qualquer subpasta de onde a skill for chamada. `outputDir` é opcional: se ausente, usa o default (`settings/jira/refinements/` na raiz do `TOOLS/`); se presente, os arquivos de cache vão pra `<outputDir>/<CARD_KEY>/` (por exemplo, dentro do próprio repo alvo — útil quando o refinamento é feito pra um agente que já vai trabalhar lá). `confluence` é opcional (ver etapa 10): `enabled: false` ou campo ausente = nunca publica; `enabled: true` exige `spaceId` (chave ou id da space) e aceita `parentId` opcional (página/pasta pra nesting — se ausente, cria na raiz da space).
 
 - Diretório de refinamento resolvido (`settings/jira/refinements/<CARD_KEY>/` por padrão, ou `<outputDir>/<CARD_KEY>/` se `outputDir` configurado): cache dos refinamentos gerados, um arquivo por etapa:
   - `raw.json` — issue + comentários como vieram do Jira, incluindo `status`/`updated` (usado na checagem de atualidade da etapa 2).
@@ -32,6 +39,7 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
   - `business.md` — refinamento de negócio.
   - `technical.md` — refinamento técnico.
   - `final-<uuid>.md` — consolidado das etapas + checklist acionável.
+  - `confluence-page.json` — `{ "pageId": "...", "url": "..." }` da página publicada, se a etapa 10 já rodou pelo menos uma vez pra essa issue (usado pra atualizar em vez de duplicar).
 
 ## Passos
 
@@ -83,6 +91,17 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
    - Escreva `final-<uuid>.md` com: cabeçalho (card key, link da issue via `webUrl`, timestamp), conteúdo de `business.md` e `technical.md`, e uma seção final **Checklist de implementação** — lista numerada de passos acionáveis (arquivos a mexer, ordem sugerida, o que validar), derivada de `technical.md` e pensada pra um agente pegar e executar direto, não só prosa.
    - Avise o usuário do caminho do arquivo final gerado.
 
+10. **Publicar no Confluence (opt-in)**
+    - Veja a entrada de `settings/jira/links.json` pra esse repo (etapa 1).
+    - Se o campo `confluence` **não existir ainda** (nunca foi perguntado): pergunte ao usuário, via `AskUserQuestion`, se quer publicar os refinamentos gerados por essa skill como página no Confluence daqui pra frente.
+      - Se não: grave `"confluence": { "enabled": false }` na entrada e pare aqui (não volta a perguntar nas próximas rodadas).
+      - Se sim: resolva a `spaceId` — se o usuário já souber a chave da space, use-a direto; senão, chame `getConfluenceSpaces` e pergunte qual usar. Pergunte também (opcional) se quer nestar sob uma página/pasta específica (`parentId`) ou deixar na raiz da space. Grave `"confluence": { "enabled": true, "spaceId": "...", "parentId": "..." }` (omita `parentId` se não informado) e siga.
+    - Se `confluence.enabled` for `false`: pare aqui, sem publicar.
+    - Se `confluence.enabled` for `true`:
+      - Se já existe `confluence-page.json` no diretório de refinamento (publicação anterior pra essa issue): chame `updateConfluencePage` com `pageId` daquele arquivo, `contentFormat: "markdown"`, `body` = conteúdo de `final-<uuid>.md`, `versionMessage` citando o novo refinamento.
+      - Se não existir: chame `createConfluencePage` com `spaceId`/`parentId` da config, `title` = `"[<CARD_KEY>] <resumo da issue> — Refinamento"`, `contentFormat: "markdown"`, `body` = conteúdo de `final-<uuid>.md`. Grave o `pageId`/URL retornado em `confluence-page.json`.
+      - Avise o usuário com a URL da página publicada/atualizada.
+
 ## Notas
 
 - Reaproveita `cloudId`/`boards.json` da skill `jira-sprint` — nunca duplicar essa lógica.
@@ -91,3 +110,4 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
 - Etapa 4 (Confluence) e o arquivo `confluence.md` só existem quando há link relevante — não force busca sem pista nenhuma.
 - Repetir a skill na mesma issue gera um novo `final-<uuid>.md` (histórico preservado) — não sobrescreve o anterior. `raw.json`/`business.md`/`technical.md`/`confluence.md` são sobrescritos a cada rodada (representam o estado mais recente do refinamento).
 - Se `outputDir` apontar pra fora do `TOOLS/` (ex.: dentro do repo alvo), quem configurar é responsável por ignorar aquele diretório no `.gitignore` do repo alvo — esta skill não edita `.gitignore` de outros repositórios.
+- Etapa 10 (Confluence) é a única escrita externa desta skill — tudo mais é local ou leitura. Uma vez configurada (`enabled: true` ou `false`), roda sem perguntar de novo; pra mudar de ideia depois, é só editar `confluence` na entrada de `settings/jira/links.json` direto.
