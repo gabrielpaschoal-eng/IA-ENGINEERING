@@ -9,6 +9,15 @@
             "command": "${CLAUDE_PROJECT_DIR}/hooks/git-branch-guard/git_branch_guard.py"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*Atlassian.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/hooks/jira-write-guard/jira_write_guard.py"
+          }
+        ]
       }
     ],
     "SessionStart": [

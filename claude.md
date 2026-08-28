@@ -17,10 +17,15 @@ TOOLS/
 ├── .claude/settings.json          # registro dos hooks (project-level)
 ├── hooks/
 │   ├── git-branch-guard/
-│   │   └── git_branch_guard.py    # hook PreToolUse/Bash (Python, stdlib only, executável direto)
+│   │   ├── git_branch_guard.py         # hook PreToolUse/Bash (Python, stdlib only, executável direto)
+│   │   └── test_git_branch_guard.py    # testes stdlib unittest (rodar: python3 hooks/git-branch-guard/test_git_branch_guard.py -v)
+│   ├── jira-write-guard/
+│   │   └── jira_write_guard.py    # hook PreToolUse/mcp__.*Atlassian.* — bloqueia escrita em task/épico do Jira
 │   ├── serena-reminder/
 │   │   └── serena_reminder.py     # hook SessionStart: lembra de usar mcp__serena__* em código real
-│   └── config/git-guard.json      # config da guardrail de git
+│   └── config/
+│       ├── git-guard.json           # config da guardrail de git
+│       └── jira-write-guard.json    # config da guardrail de escrita no Jira
 ├── settings/                      # configs do harness (por integração/subsistema)
 │   ├── jira/boards.json           # boards Jira do usuário (cloudId + projectKey) — gitignored, criado pela skill no 1º uso
 │   ├── jira/links.json            # vínculo repo local ↔ issue key — gitignored, criado pela skill jira-refine no 1º uso
@@ -36,19 +41,31 @@ TOOLS/
 
 ## Guardrails
 
-### Git — bloqueio de comando em branch protegida
+### Git — bloqueio de comando destrutivo / branch protegida
 
-Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrão) são bloqueados quando a branch atual está na lista de protegidas (`main`/`master` por padrão); liberado em qualquer outra branch.
+Criar branch é sempre livre. Três camadas independentes, todas via o mesmo hook:
+
+1. **Sempre bloqueado, qualquer branch, qualquer repo** (`alwaysBlocked` no config): `reset --hard`, `clean -f`, `push --force/-f/--force-with-lease`, `branch -D`, `tag -d`, `checkout --` (descarta arquivo), `restore` (exceto `--staged`), `filter-branch`, `submodule deinit` — comandos com perda de dado sem recuperação fácil.
+2. **Flag sempre bloqueada** (`blockedFlagsAnywhere`): `--no-verify` (pula hook de commit/push).
+3. **Comando bloqueado só em branch protegida** (`blockedCommands` + `protectedBranches`): `commit`/`push` por padrão em `main`/`master`; liberado em qualquer outra branch.
 
 - Hook `PreToolUse` (matcher `Bash`) registrado em `.claude/settings.json`, script Python em `hooks/git-branch-guard/git_branch_guard.py` (stdlib only, sem dependência externa, executável via shebang `#!/usr/bin/env python3` — chamado direto por path, sem prefixar `python3` no comando do hook).
-- Tokenizer via `shlex` (posix + `punctuation_chars`) faz split do comando em `;`/`&`/`&&`/`||`/`|`/subshell respeitando aspas, e resolve o subcomando git ignorando flags globais (`-C`, `-c`, etc.) e prefixos de env var (`FOO=bar git ...`).
+- Tokenizer via `shlex` (posix + `punctuation_chars`) faz split do comando em `;`/`&`/`&&`/`||`/`|` respeitando aspas — **limitação conhecida**: não trata newline (script multi-linha) nem `$(...)` (subshell) corretamente, isso pode escapar do parser.
+- Resolve a branch/repo **alvo de cada invocação git** (não da sessão): extrai `-C <path>`/`--git-dir` de cada comando e checa a branch daquele repo, não do cwd do hook — então `git -C outro-repo commit` é avaliado contra a branch de `outro-repo`, não da sessão.
 - Script auto-localiza o config (`hooks/config/git-guard.json`, relativo ao próprio arquivo via `Path(__file__)`); aceita override por arg1 ou `GIT_GUARD_CONFIG`.
-- Config (`hooks/config/git-guard.json`):
-  - `protectedBranches`: branches bloqueadas
-  - `blockedCommands`: subcomandos git bloqueados nessas branches
-  - `exemptRepos`: caminhos absolutos (toplevel do repo) onde a guardrail é totalmente desligada
-- Checa a branch atual (`git rev-parse --abbrev-ref HEAD`) do repo onde a sessão está rodando — não do repo alvo do comando — antes de deixar os comandos configurados passarem; nega com `permissionDecision: deny` citando a branch e o path do config.
+- Config (`hooks/config/git-guard.json`): `protectedBranches`, `blockedCommands`, `exemptRepos` (caminhos absolutos onde a guardrail é totalmente desligada), `alwaysBlocked` (lista de `{subcommand, anyFlags?, unlessFlags?, firstArg?}`), `blockedFlagsAnywhere`.
+- Nega com `permissionDecision: deny`, citando o motivo específico (branch protegida / comando destrutivo / flag bloqueada) e o path do config.
 - Editar o JSON de config ou o script não exige nada além de já ter o hook carregado na sessão — sem build step, roda direto (requer `python3` no PATH).
+- Testes: `python3 hooks/git-branch-guard/test_git_branch_guard.py -v` (stdlib `unittest`, sem dependência) — cobre parsing (`-C`, `--git-dir`, flags bundladas) e roda o config real contra um repo git descartável em `/tmp`.
+
+### Jira — bloqueio de escrita em task/épico
+
+Hook `PreToolUse` separado (matcher `mcp__.*Atlassian.*`) nega qualquer chamada MCP cujo nome termine num sufixo de `blockedToolSuffixes` (`hooks/config/jira-write-guard.json`: `createJiraIssue`, `editJiraIssue`, `addCommentToJiraIssue`, `addWorklogToJiraIssue`, `createIssueLink`, `transitionJiraIssue`).
+
+- Script `hooks/jira-write-guard/jira_write_guard.py` — casa por **sufixo** do nome da tool (`tool_name.endswith(sufixo)`), não nome completo, pra sobreviver a troca de versão do conector (`mcp__..._Atlassian_Rovo__X` vs `mcp__..._Atlassian_Rovo_2__X`).
+- Torna técnica (bloqueio a nível de hook) a regra que antes só existia como instrução de prosa na skill `jira-refine` ("nunca escreve no Jira") — defesa em profundidade contra alucinação ou instrução maliciosa vinda de um comentário de issue.
+- Confluence **não** está na lista (`createConfluencePage`/`updateConfluencePage` continuam liberados) — é a escrita opt-in da etapa 10 do `jira-refine`, intencional.
+- Mesmo padrão de config do git guard: editar `blockedToolSuffixes` no JSON não exige nada além do hook já carregado na sessão.
 
 ## Integrações
 

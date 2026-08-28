@@ -1,0 +1,10 @@
+{
+  "blockedToolSuffixes": [
+    "createJiraIssue",
+    "editJiraIssue",
+    "addCommentToJiraIssue",
+    "addWorklogToJiraIssue",
+    "createIssueLink",
+    "transitionJiraIssue"
+  ]
+}

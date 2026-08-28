@@ -19,7 +19,7 @@ Documentação completa das regras e estrutura: [claude.md](claude.md).
 
 Os hooks são scripts Python (stdlib only, sem dependências) executados direto por path — sem build step. Só precisa de `python3` no PATH (testado com 3.12) e do script com bit de execução (já vem assim; `chmod +x hooks/<nome>/*.py` se precisar reconceder depois de um clone).
 
-Para conferir se o guardrail está ativo, tente um `git commit` estando na branch `main`/`master`: o comando deve ser negado pelo hook.
+Para conferir se o guardrail está ativo, tente um `git commit` estando na branch `main`/`master` (deve ser negado), ou um `git reset --hard` em qualquer branch (sempre negado, independente de branch).
 
 ## Como funciona (guardrail de git)
 
@@ -28,30 +28,31 @@ flowchart TD
     A["Claude Code tenta rodar um comando Bash"] --> B["Hook PreToolUse dispara<br/>hooks/git-branch-guard/git_branch_guard.py"]
     B --> C{"Config git-guard.json<br/>carrega?"}
     C -- não --> Z["Libera (exit 0)"]
-    C -- sim --> D["Lê tool_input.command do stdin (JSON)"]
-    D --> E["Tokeniza o comando<br/>(aspas, ; & && || | subshell)"]
-    E --> F{"Repo atual está em<br/>exemptRepos?"}
+    C -- sim --> D["Lê tool_input.command do stdin (JSON)<br/>separa em invocações git (;/&&/||/...)"]
+    D --> E["Pra cada invocação: resolve repo/branch alvo<br/>(-C/--git-dir do próprio comando, não o cwd da sessão)"]
+    E --> F{"Repo alvo está em<br/>exemptRepos?"}
     F -- sim --> Z
-    F -- não --> G{"Algum subcomando git<br/>bate com blockedCommands?<br/>(commit, push, ...)"}
-    G -- não --> Z
-    G -- sim --> H["git rev-parse --abbrev-ref HEAD<br/>(branch da sessão atual)"]
-    H --> I{"Branch está em<br/>protectedBranches?<br/>(main, master, ...)"}
-    I -- não --> Z
-    I -- sim --> J["Nega (permissionDecision: deny)<br/>cita branch + path do config"]
+    F -- não --> G{"Bate com alwaysBlocked?<br/>(reset --hard, push --force, ...)<br/>ou blockedFlagsAnywhere? (--no-verify)"}
+    G -- sim --> J["Nega — qualquer branch"]
+    G -- não --> H{"Subcomando bate com blockedCommands<br/>E branch alvo está em protectedBranches?"}
+    H -- não --> Z
+    H -- sim --> J
 ```
 
 Pontos-chave:
 
 - O script roda uma vez por comando `Bash` que o Claude Code tenta executar — antes de qualquer coisa ser de fato executada.
-- A branch checada é a do repositório onde a **sessão** está (cwd do hook), não a de um repositório de destino dentro do comando (ex.: `cd outro-repo && git commit` ainda é avaliado contra a branch do repo da sessão).
+- A branch/repo checada é a do **alvo de cada invocação git** dentro do comando (respeita `-C`/`--git-dir`), não necessariamente o cwd da sessão.
+- `alwaysBlocked`/`blockedFlagsAnywhere` bloqueiam independente de branch; `blockedCommands` só bloqueia em `protectedBranches`.
 - Qualquer resultado que não seja "nega" deixa o comando seguir normalmente para o Claude Code executar.
+- Testes: `python3 hooks/git-branch-guard/test_git_branch_guard.py -v`.
 
-## Jira (skills)
+## Jira (skills + guardrail)
 
-Duas skills leem o Jira via MCP do Atlassian Rovo (`/mcp` para autenticar) — nenhuma delas escreve no Jira, config e cache ficam só em `settings/jira/` (gitignored). Detalhes completos em [claude.md](claude.md#integrações).
+Duas skills leem o Jira via MCP do Atlassian Rovo (`/mcp` para autenticar) — config e cache ficam só em `settings/jira/` (gitignored). Um segundo hook (`hooks/jira-write-guard/`) bloqueia, a nível técnico, qualquer chamada MCP que altere task/épico (`editJiraIssue`, `addCommentToJiraIssue`, `transitionJiraIssue`, etc.) — Confluence não entra nessa trava (é escrita opt-in do `jira-refine`, ver abaixo). Detalhes completos em [claude.md](claude.md#integrações).
 
 - `jira-sprint`: lista os cards da sprint atual de um board cadastrado em `settings/jira/boards.json`.
-- `jira-refine`: gera refinamento de negócio e técnico (com Serena) de uma issue, vinculada ao repo local via `settings/jira/links.json`; cache em `settings/jira/refinements/<CARD_KEY>/`.
+- `jira-refine`: gera refinamento de negócio e técnico (com Serena) de uma issue, vinculada ao repo local via `settings/jira/links.json`; cache em `settings/jira/refinements/<CARD_KEY>/`. Publicar no Confluence é opcional (opt-in, perguntado uma vez por repo).
 
 ## Serena (MCP de navegação de código)
 
