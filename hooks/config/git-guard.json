@@ -1,5 +1,17 @@
 {
   "protectedBranches": ["main", "master"],
   "blockedCommands": ["commit", "push"],
-  "exemptRepos": []
+  "exemptRepos": [],
+  "alwaysBlocked": [
+    {"subcommand": "reset", "anyFlags": ["--hard"]},
+    {"subcommand": "clean", "anyFlags": ["-f", "--force"]},
+    {"subcommand": "push", "anyFlags": ["--force", "-f", "--force-with-lease", "--force-if-includes"]},
+    {"subcommand": "branch", "anyFlags": ["-D"]},
+    {"subcommand": "tag", "anyFlags": ["-d", "--delete"]},
+    {"subcommand": "checkout", "anyFlags": ["--"]},
+    {"subcommand": "restore", "unlessFlags": ["--staged", "-S"]},
+    {"subcommand": "filter-branch"},
+    {"subcommand": "submodule", "firstArg": "deinit"}
+  ],
+  "blockedFlagsAnywhere": ["--no-verify"]
 }
