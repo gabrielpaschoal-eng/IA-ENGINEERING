@@ -9,7 +9,7 @@ Documentação completa das regras e estrutura: [claude.md](claude.md).
 1. Abra o Claude Code a partir desta pasta (`TOOLS/`). Outros repositórios entram via `--add-dir` / `additionalDirectories`.
 
    ```bash
-   cd /home/gabrielpaschoal/Documentos/TOOLS
+   cd /caminho/para/TOOLS
    claude
    ```
 
@@ -45,3 +45,24 @@ Pontos-chave:
 - O script roda uma vez por comando `Bash` que o Claude Code tenta executar — antes de qualquer coisa ser de fato executada.
 - A branch checada é a do repositório onde a **sessão** está (cwd do hook), não a de um repositório de destino dentro do comando (ex.: `cd outro-repo && git commit` ainda é avaliado contra a branch do repo da sessão).
 - Qualquer resultado que não seja "nega" deixa o comando seguir normalmente para o Claude Code executar.
+
+## Serena (MCP de navegação de código)
+
+Ferramentas de navegação/edição semântica de código (via LSP) e memória persistente por projeto, pra usar nos repositórios de trabalho reais (plugados via `--add-dir`) — não no `TOOLS/` em si.
+
+```bash
+cd settings/serena
+cp .env.example .env    # ajuste SERENA_PROJECTS_DIR pro diretório pai dos seus repos
+docker compose up -d
+```
+
+O registro no Claude Code já vem pronto via `.mcp.json` (raiz do repo, versionado) — não precisa rodar `claude mcp add`. Na primeira vez que abrir o harness (com o container já rodando), o Claude Code pede aprovação de confiança do servidor; aceite o prompt e as ferramentas `mcp__serena__*` ficam disponíveis. Dashboard web em `http://localhost:24282/dashboard/index.html`.
+
+Se `docker compose up` der `permission denied` no socket do Docker (comum com o snap do Docker no Ubuntu, que não cria o grupo `docker` sozinho):
+
+```bash
+sudo addgroup --system docker
+sudo adduser $USER docker
+sudo snap disable docker && sudo snap enable docker
+# depois: logout/login, ou `newgrp docker` / `sg docker -c "..."` pra testar sem relogar
+```

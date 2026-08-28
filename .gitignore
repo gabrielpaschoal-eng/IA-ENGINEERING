@@ -1,2 +1,4 @@
 settings/jira/boards.json
+settings/serena/.env
+settings/serena/config/
 __pycache__/

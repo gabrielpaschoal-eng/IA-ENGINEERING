@@ -1,0 +1,15 @@
+services:
+  serena:
+    image: ghcr.io/oraios/serena:latest
+    container_name: serena-mcp
+    restart: unless-stopped
+    environment:
+      - SERENA_DOCKER=1
+    ports:
+      - "127.0.0.1:${SERENA_PORT:-9121}:9121"
+      - "127.0.0.1:${SERENA_DASHBOARD_PORT:-24282}:24282"
+    volumes:
+      - ${SERENA_PROJECTS_DIR}:/workspace
+      - ./config:/workspaces/serena/config
+    command:
+      - "uv run --directory . serena start-mcp-server --transport sse --port 9121 --host 0.0.0.0 --context claude-code --open-web-dashboard False"
