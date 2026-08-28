@@ -17,7 +17,9 @@ TOOLS/
 ├── .claude/settings.json          # registro dos hooks (project-level)
 ├── hooks/
 │   ├── git-branch-guard/
-│   │   └── git_branch_guard.py    # hook (Python, stdlib only, executável direto)
+│   │   └── git_branch_guard.py    # hook PreToolUse/Bash (Python, stdlib only, executável direto)
+│   ├── serena-reminder/
+│   │   └── serena_reminder.py     # hook SessionStart: lembra de usar mcp__serena__* em código real
 │   └── config/git-guard.json      # config da guardrail de git
 ├── settings/                      # configs do harness (por integração/subsistema)
 │   ├── jira/boards.json           # boards Jira do usuário (cloudId + projectKey) — gitignored, criado pela skill no 1º uso
@@ -55,13 +57,14 @@ Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrã
 
 Ferramentas de navegação/edição via LSP (`find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, etc.) e memória por projeto (`write_memory`/`read_memory`), pra usar nos repositórios de trabalho reais plugados via `--add-dir` — não faz sentido pro `TOOLS/` em si (base pequena demais pra LSP compensar).
 
-- Roda via Docker (`settings/serena/docker-compose.yml`), imagem oficial `ghcr.io/oraios/serena:latest`, transporte SSE na porta 9121 (dashboard web na 24282).
+- Roda via Docker (`settings/serena/docker-compose.yml`), imagem oficial `ghcr.io/oraios/serena:latest`, transporte SSE na porta 9121 (dashboard web na 24282). Healthcheck no compose bate em `http://127.0.0.1:24282/dashboard/index.html` **de dentro do container** (o dashboard só escuta em loopback interno — não dá pra checar isso do host) — `docker compose ps` mostra `(healthy)`/`(unhealthy)` em vez de só "Up".
 - Setup por máquina: copiar `settings/serena/.env.example` pra `settings/serena/.env` e ajustar `SERENA_PROJECTS_DIR` (diretório pai que contém os repos que você quer que o Serena acesse — montado como `/workspace` dentro do container). `.env` e `config/` são locais/gitignored (cada pessoa tem seu próprio path e sua própria config/memórias).
 - Subir: `cd settings/serena && docker compose up -d`. Se seu usuário não estiver no grupo `docker` (comum com o snap do Docker/Ubuntu), ver **Notas operacionais**.
 - Registro no Claude Code é automático via `.mcp.json` (raiz do repo, versionado — `url` é `http://localhost:${SERENA_PORT:-9121}/sse`, mesmo default do `docker-compose.yml`). Ninguém precisa rodar `claude mcp add` manualmente: ao abrir o harness, o Claude Code pede aprovação de confiança do servidor **uma vez por máquina** (`claude mcp list` mostra `⏸ Pending approval` até aceitar — some ao rodar `claude` de novo e aprovar o prompt). Requer o container do Serena já rodando (`docker compose up -d`) antes de aprovar/usar.
 - **Pegadinha do `${SERENA_PORT}`**: o Claude Code não lê `.env` sozinho pra expandir isso — só enxerga variável já exportada no shell antes de rodar `claude` (diferente do `docker compose`, que lê `settings/serena/.env` automático). Funciona sem nada extra enquanto a porta for a default (`9121`, igual nos dois lugares). Se customizar `SERENA_PORT` em `settings/serena/.env`, precisa também `export SERENA_PORT=<valor>` no shell antes de abrir a sessão, senão o `.mcp.json` cai no default enquanto o container sobe noutra porta.
 - `claude mcp reset-project-choices` reseta a aprovação (útil se o `.mcp.json` mudar e precisar reconfiar).
 - Ao ativar um projeto pela primeira vez (`activate_project` / onboarding do Serena), ele grava memórias daquele repo em `.serena/memories/` dentro do próprio repo de trabalho (não dentro do `TOOLS/`).
+- Hook `SessionStart` (matcher `startup`, `hooks/serena-reminder/serena_reminder.py`) injeta lembrete de contexto toda vez que uma sessão nova abre neste harness: usar `mcp__serena__*` (não `Read`/`Grep`) pra navegação/edição de código real, e chamar `initial_instructions`/`activate_project` antes de começar uma tarefa de código num repo. Sem isso, nada garante que eu de fato uso as ferramentas do Serena em vez de cair no hábito.
 
 ## Notas operacionais
 
