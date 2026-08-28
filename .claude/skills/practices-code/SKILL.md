@@ -34,7 +34,7 @@ Roteador de conhecimento técnico. O conteúdo fica em `knowledge/*.md` — esta
 
 1. Se disparada standalone com um pedido específico ("revisa com SOLID"): leia só o arquivo do tópico citado.
 2. Se disparada standalone com pedido amplo ("revisa esse código", "isso tá bem desenhado?") sem tópico específico: leia os arquivos relevantes pro que o código realmente faz (não leia os 6 por padrão — julgue pelo que está em jogo).
-3. Se invocada internamente por outra skill (ex.: `jira-refine`, que já delimitou o escopo da task antes de chamar): leia todos os 6 arquivos de padrão e aplique o que for pertinente ao escopo já delimitado.
+3. Se invocada internamente por outra skill (ex.: `jira-refine`): use o mesmo critério do item 2, não "leia todos os 6 por ser interno" — o escopo já delimitado (business.md, arquivos mapeados via Serena) geralmente aponta pra 1-3 tópicos reais. Só leia os 6 quando a task genuinamente for ampla (novo domínio inteiro, revisão arquitetural de verdade) — ler tudo por padrão gasta contexto à toa na maioria das tasks.
 4. Aplique os checklists encontrados ao código/proposta em questão. Cite a regra específica violada (não só "viola SOLID" — diga qual princípio e por quê).
 5. Se o resultado for um **documento** de refinamento técnico (não uma resposta de revisão inline), leia também `knowledge/technical-refinement-template.md` e siga a estrutura dele — marcando `N/A` nas seções que não se aplicam, sem omitir.
 
