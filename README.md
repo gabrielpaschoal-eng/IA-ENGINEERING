@@ -15,19 +15,9 @@ Documentação completa das regras e estrutura: [claude.md](claude.md).
 
 2. Os hooks já vêm registrados em `.claude/settings.json` e carregam automaticamente na sessão. Se você editou `.claude/settings.json` ou o código de um hook no meio de uma sessão já aberta, rode `/hooks` uma vez (ou reinicie a sessão) para recarregar.
 
-## Build dos hooks (binários Go)
+## Rodando os hooks (Python)
 
-Os hooks em Go (`hooks/<nome>/main.go`) precisam ser compilados antes de funcionar (ou depois de qualquer mudança no código). O `Makefile` na raiz builda todos de uma vez:
-
-```bash
-make            # builda todos os hooks -> hooks/bin/<nome>
-make git-branch-guard   # builda só um hook específico
-make clean      # remove hooks/bin
-```
-
-Todo diretório novo em `hooks/` com um `main.go` + `go.mod` é detectado automaticamente pelo `Makefile` — não precisa editar nada nele pra adicionar um hook.
-
-Requer Go 1.22+ instalado. O binário compilado (`hooks/bin/`) não é versionado (`.gitignore`).
+Os hooks são scripts Python (stdlib only, sem dependências) executados direto por path — sem build step. Só precisa de `python3` no PATH (testado com 3.12) e do script com bit de execução (já vem assim; `chmod +x hooks/<nome>/*.py` se precisar reconceder depois de um clone).
 
 Para conferir se o guardrail está ativo, tente um `git commit` estando na branch `main`/`master`: o comando deve ser negado pelo hook.
 
@@ -35,7 +25,7 @@ Para conferir se o guardrail está ativo, tente um `git commit` estando na branc
 
 ```mermaid
 flowchart TD
-    A["Claude Code tenta rodar um comando Bash"] --> B["Hook PreToolUse dispara<br/>hooks/bin/git-branch-guard"]
+    A["Claude Code tenta rodar um comando Bash"] --> B["Hook PreToolUse dispara<br/>hooks/git-branch-guard/git_branch_guard.py"]
     B --> C{"Config git-guard.json<br/>carrega?"}
     C -- não --> Z["Libera (exit 0)"]
     C -- sim --> D["Lê tool_input.command do stdin (JSON)"]
@@ -52,6 +42,6 @@ flowchart TD
 
 Pontos-chave:
 
-- O binário roda uma vez por comando `Bash` que o Claude Code tenta executar — antes de qualquer coisa ser de fato executada.
+- O script roda uma vez por comando `Bash` que o Claude Code tenta executar — antes de qualquer coisa ser de fato executada.
 - A branch checada é a do repositório onde a **sessão** está (cwd do hook), não a de um repositório de destino dentro do comando (ex.: `cd outro-repo && git commit` ainda é avaliado contra a branch do repo da sessão).
 - Qualquer resultado que não seja "nega" deixa o comando seguir normalmente para o Claude Code executar.
