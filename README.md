@@ -58,6 +58,10 @@ docker compose up -d
 
 O registro no Claude Code já vem pronto via `.mcp.json` (raiz do repo, versionado) — não precisa rodar `claude mcp add`. Na primeira vez que abrir o harness (com o container já rodando), o Claude Code pede aprovação de confiança do servidor; aceite o prompt e as ferramentas `mcp__serena__*` ficam disponíveis. Dashboard web em `http://localhost:24282/dashboard/index.html`.
 
+### Cobertura de linguagem
+
+Das stacks que usamos nos repos reais (Go, TypeScript, Java, Python), a imagem oficial cobre TypeScript e Java sozinha — o language server de cada um é baixado automaticamente na primeira vez que um projeto daquela linguagem é ativado (TS via npm, Java via bundle do `redhat-developer/vscode-java` com JRE embutido) — e Python já funciona de cara (a imagem já tem `uv`/`uvx`). **Go não funciona**: o `gopls` exigiria o toolchain Go pré-instalado, que a imagem oficial não tem. Já avaliamos estender a imagem com um Dockerfile próprio pra isso (funcionou, testado), mas decidimos não manter — o custo de passar a ser dono da manutenção dessa imagem (perder updates automáticos do Serena) não compensou pra fechar essa lacuna. Navegação semântica em projeto Go fica sem suporte por enquanto.
+
 Se `docker compose up` der `permission denied` no socket do Docker (comum com o snap do Docker no Ubuntu, que não cria o grupo `docker` sozinho):
 
 ```bash
