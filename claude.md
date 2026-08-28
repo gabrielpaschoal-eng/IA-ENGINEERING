@@ -58,11 +58,13 @@ Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrã
 
 ### Jira — refinamento de task (jira-refine)
 
-- Skill `jira-refine` (`.claude/skills/jira-refine/SKILL.md`) vincula o repo local a uma issue Jira (`settings/jira/links.json`, gitignored: `{ "links": [{ "repoPath": "...", "issueKey": "..." }] }`) e gera, a partir da issue + comentários, um refinamento de negócio e depois um técnico (usando Serena — `activate_project` no repo alvo, `find_symbol`/`find_referencing_symbols`/`get_symbols_overview` — pra mapear módulos/arquivos impactados), com clarificação pontual (`AskUserQuestion`) só quando sobra ambiguidade real.
+- Skill `jira-refine` (`.claude/skills/jira-refine/SKILL.md`) vincula o repo local a uma issue Jira (`settings/jira/links.json`, gitignored: `{ "links": [{ "repoPath": "...", "issueKey": "...", "outputDir": "..." }] }`) e gera, a partir da issue + comentários (e páginas Confluence citadas nelas, se houver), um refinamento de negócio e depois um técnico (usando Serena — `activate_project` no repo alvo, `find_symbol`/`find_referencing_symbols`/`get_symbols_overview` — pra mapear módulos/arquivos impactados), com clarificação pontual (`AskUserQuestion`) só quando sobra ambiguidade real.
+- `outputDir` na entrada de `links.json` é opcional e por repo/link: se ausente, cache vai pro default (`settings/jira/refinements/<CARD_KEY>/` dentro do `TOOLS/`); se presente, vai pra `<outputDir>/<CARD_KEY>/` (ex.: dentro do próprio repo alvo). Se apontar pra fora do `TOOLS/`, o `.gitignore` daquele destino é responsabilidade de quem configurou — a skill não mexe em `.gitignore` de outros repos.
+- Antes de buscar no Jira, checa se já existe refinamento pra issue (compara `updated` salvo em `raw.json` contra o atual) e, se nada mudou, oferece reabrir o `final-<uuid>.md` mais recente em vez de rodar tudo de novo.
 - Reaproveita `cloudId`/`boards.json` da skill `jira-sprint` — não duplica resolução de `cloudId`.
-- Cache dos refinamentos em `settings/jira/refinements/<CARD_KEY>/` (gitignored): `raw.json`, `business.md`, `technical.md`, `final-<uuid>.md` (histórico preservado — cada rodada gera um novo `final-<uuid>.md`).
+- Cache dos refinamentos no diretório resolvido (padrão ou `outputDir`): `raw.json`, `confluence.md` (se houver link citado), `business.md`, `technical.md`, `final-<uuid>.md` (com checklist de implementação ao final — histórico preservado, cada rodada gera um novo `final-<uuid>.md`).
 - **Somente leitura no Jira** — a skill nunca chama tool de escrita do Atlassian Rovo (`editJiraIssue`, `addCommentToJiraIssue`, `createIssueLink`, `transitionJiraIssue`, etc.), nem na task nem no épico. O refinamento é um artefato pro harness/agente (ponto de partida pra desenvolver ou delegar a task), não um artefato pro Jira.
-- Mesma exigência de auth do MCP Atlassian Rovo da `jira-sprint`.
+- Mesma exigência de auth do MCP Atlassian Rovo da `jira-sprint` (Confluence usa o mesmo conector).
 
 ### Serena — navegação semântica de código (MCP)
 
