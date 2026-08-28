@@ -50,6 +50,9 @@ Pontos-chave:
 
 Ferramentas de navegação/edição semântica de código (via LSP) e memória persistente por projeto, pra usar nos repositórios de trabalho reais (plugados via `--add-dir`) — não no `TOOLS/` em si.
 
+- Repositório do Serena: https://github.com/oraios/serena
+- Docker (instalação): https://docs.docker.com/get-docker/
+
 ```bash
 cd settings/serena
 cp .env.example .env    # ajuste SERENA_PROJECTS_DIR pro diretório pai dos seus repos
