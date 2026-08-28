@@ -5,6 +5,7 @@ Harness pessoal do time IA AUTOMATION: Claude Code como motor, plugado nos repos
 ## Regras
 
 - Tudo que for criado para o harness (hooks, scripts, config, skills) fica dentro desta pasta (`TOOLS/`). Nada em `~/.claude/` — só o registro mínimo que já vem por padrão.
+- Config geral do harness (fora do escopo específico de um hook) fica em `settings/`, organizada por integração/subsistema (ex.: `settings/jira/`).
 
 ## Estrutura
 
@@ -12,12 +13,15 @@ Harness pessoal do time IA AUTOMATION: Claude Code como motor, plugado nos repos
 TOOLS/
 ├── claude.md                      # este arquivo
 ├── Makefile                       # builda todos os hooks Go (hooks/*/main.go -> hooks/bin/*)
-├── .gitignore                     # ignora binário compilado (hooks/bin/)
+├── .gitignore                     # ignora binário compilado (hooks/bin/) e config local (settings/settings/jira/boards.json)
 ├── .claude/settings.json          # registro dos hooks (project-level)
-└── hooks/
-    ├── git-branch-guard/          # fonte Go (main.go, go.mod)
-    ├── bin/git-branch-guard       # binário compilado (gitignored, gerado localmente)
-    └── config/git-guard.json      # config da guardrail de git
+├── hooks/
+│   ├── git-branch-guard/          # fonte Go (main.go, go.mod)
+│   ├── bin/git-branch-guard       # binário compilado (gitignored, gerado localmente)
+│   └── config/git-guard.json      # config da guardrail de git
+├── settings/                      # configs do harness (por integração/subsistema)
+│   └── settings/jira/boards.json           # boards Jira do usuário (cloudId + projectKey) — gitignored, criado pela skill no 1º uso
+└── .claude/skills/jira-sprint/     # skill que lê/cria settings/settings/jira/boards.json e consulta a sprint atual
 ```
 
 ## Guardrails
@@ -44,6 +48,16 @@ Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrã
 - `make` / `make build-all`: builda todos os hooks Go pra `hooks/bin/<nome>`
 - `make <nome>` (ex.: `make git-branch-guard`): builda só um hook
 - `make clean`: remove `hooks/bin`
+
+## Integrações
+
+### Jira — sprint atual por board
+
+- Boards cadastrados em `settings/jira/boards.json` (raiz, gitignored — config local, não compartilhado via git): `{ "cloudId": "...", "boards": [{ "name": "...", "projectKey": "..." }] }`. Todos os boards de um mesmo arquivo compartilham o `cloudId` (site Atlassian do grupo).
+- Skill `jira-sprint` (`.claude/skills/jira-sprint/SKILL.md`) lê esse config, resolve o board (por nome/project key citado, ou pergunta se houver mais de um cadastrado) e consulta a sprint em andamento via MCP do Atlassian Rovo (`project = <key> AND sprint in openSprints()`).
+- Se `settings/jira/boards.json` não existir, a skill cria (resolvendo `cloudId` via `getAccessibleAtlassianResources`) e pergunta o primeiro board pra cadastrar — cada pessoa que usar o harness cadastra os próprios boards no primeiro uso.
+- Requer autenticação do MCP "claude.ai Atlassian Rovo" ativa na sessão (`/mcp` pra logar).
+- Adicionar board novo: só editar `settings/jira/boards.json` (ou pedir pra skill cadastrar), sem tocar na skill.
 
 ## Notas operacionais
 
