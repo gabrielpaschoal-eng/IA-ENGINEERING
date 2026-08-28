@@ -1,6 +1,6 @@
 # TOOLS
 
-Harness pessoal do time IA AUTOMATION: Claude Code como motor, plugado nos repositórios do dia a dia.
+Harness do time IA AUTOMATION: Claude Code como motor, plugado nos repositórios do dia a dia.
 
 Documentação completa das regras e estrutura: [claude.md](claude.md).
 
