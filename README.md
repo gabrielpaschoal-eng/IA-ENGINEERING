@@ -46,6 +46,13 @@ Pontos-chave:
 - A branch checada é a do repositório onde a **sessão** está (cwd do hook), não a de um repositório de destino dentro do comando (ex.: `cd outro-repo && git commit` ainda é avaliado contra a branch do repo da sessão).
 - Qualquer resultado que não seja "nega" deixa o comando seguir normalmente para o Claude Code executar.
 
+## Jira (skills)
+
+Duas skills leem o Jira via MCP do Atlassian Rovo (`/mcp` para autenticar) — nenhuma delas escreve no Jira, config e cache ficam só em `settings/jira/` (gitignored). Detalhes completos em [claude.md](claude.md#integrações).
+
+- `jira-sprint`: lista os cards da sprint atual de um board cadastrado em `settings/jira/boards.json`.
+- `jira-refine`: gera refinamento de negócio e técnico (com Serena) de uma issue, vinculada ao repo local via `settings/jira/links.json`; cache em `settings/jira/refinements/<CARD_KEY>/`.
+
 ## Serena (MCP de navegação de código)
 
 Ferramentas de navegação/edição semântica de código (via LSP) e memória persistente por projeto, pra usar nos repositórios de trabalho reais (plugados via `--add-dir`) — não no `TOOLS/` em si.
