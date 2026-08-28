@@ -61,20 +61,22 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
    - Se a chamada pedir autenticação separada, instrua o usuário a rodar `/mcp` de novo (mesmo conector Atlassian Rovo).
 
 5. **Refinamento de negócio**
-   - Leia `raw.json` (e `confluence.md`, se existir) e sintetize em `business.md`: contexto de negócio, regras, critérios de aceite, edge cases citados nos comentários/páginas.
+   - Invoque as skills `practices-business` e `practices-refinement` antes de escrever — elas apontam pra `knowledge/business.md` e `knowledge/refinement.md`, com o padrão de qualidade esperado (linguagem de negócio, ator explícito, critério de aceite testável, edge case explícito).
+   - Leia `raw.json` (e `confluence.md`, se existir) e sintetize em `business.md`: contexto de negócio, regras, critérios de aceite, edge cases citados nos comentários/páginas — aplicando o padrão das skills invocadas acima.
 
 6. **Clarify de negócio (condicional)**
    - Revise `business.md` procurando ambiguidade genuína (algo que a issue/comentários realmente deixam em aberto) — não invente pergunta por inventar.
    - Se achar lacuna, use `AskUserQuestion` e atualize `business.md` com a resposta antes de seguir. Se não achar nada, siga direto.
 
 7. **Refinamento técnico (Serena)**
+   - Invoque a skill `practices-code` antes de escrever — ela aponta pra `knowledge/{ddd,solid,clean-architecture,clean-code,design-patterns,database}.md` com o padrão técnico esperado (só aplique o que for pertinente ao escopo desta task, sem forçar checklist inteiro numa mudança pequena).
    - Resolva o repositório alvo: o `repoPath` vinculado, ou o repositório onde a sessão já está rodando.
    - Chame `mcp__serena__initial_instructions` e depois `mcp__serena__activate_project` nesse repositório (nunca no `TOOLS/`).
    - Use `find_symbol`, `find_referencing_symbols`, `get_symbols_overview` para mapear módulos/arquivos relacionados ao domínio descrito em `business.md`.
-   - Grave `technical.md`: abordagem técnica, arquivos/módulos impactados, riscos.
+   - Escreva `technical.md` seguindo a estrutura de `knowledge/technical-refinement-template.md` (contexto, decisão recomendada, alternativas consideradas e por que foram descartadas, componentes impactados, diagrama se ajudar, riscos & mitigação, plano de rollout/reversibilidade, requisitos não-funcionais, dependências, alçada) — marque `N/A` nas seções que não se aplicam, sem omitir. Esse formato é o que torna o refinamento útil pro time, não só pra quem gerou.
 
 8. **Clarify técnico (condicional)**
-   - Só pergunte se `technical.md` apontar 2+ abordagens igualmente válidas ou uma dependência externa incerta. Use `AskUserQuestion` e atualize `technical.md` com a resposta. Não repita perguntas já resolvidas na etapa de negócio.
+   - Só pergunte se, mesmo depois de listar as alternativas em `technical.md`, sobrar empate real entre 2+ abordagens ou uma dependência externa incerta que muda a decisão. Use `AskUserQuestion` e atualize `technical.md` com a resposta. Não repita perguntas já resolvidas na etapa de negócio.
 
 9. **Consolidar**
    - Gere um uuid: `python3 -c "import uuid;print(uuid.uuid4())"`.
@@ -84,6 +86,7 @@ Gera, a partir de uma issue Jira, um refinamento de negócio e depois um refinam
 ## Notas
 
 - Reaproveita `cloudId`/`boards.json` da skill `jira-sprint` — nunca duplicar essa lógica.
+- Invocação de `practices-business`/`practices-refinement`/`practices-code` não substitui julgamento de escopo: task pequena não precisa do checklist inteiro de DDD/SOLID — aplique só o que for pertinente.
 - Etapas 6 e 8 não são obrigatórias a cada rodada — só perguntam quando há lacuna/ambiguidade real, para não virar ruído.
 - Etapa 4 (Confluence) e o arquivo `confluence.md` só existem quando há link relevante — não force busca sem pista nenhuma.
 - Repetir a skill na mesma issue gera um novo `final-<uuid>.md` (histórico preservado) — não sobrescreve o anterior. `raw.json`/`business.md`/`technical.md`/`confluence.md` são sobrescritos a cada rodada (representam o estado mais recente do refinamento).

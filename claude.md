@@ -26,8 +26,12 @@ TOOLS/
 │   ├── jira/links.json            # vínculo repo local ↔ issue key — gitignored, criado pela skill jira-refine no 1º uso
 │   ├── jira/refinements/          # cache dos refinamentos gerados por issue — gitignored, criado pela skill jira-refine
 │   └── serena/                    # docker-compose do MCP Serena (config/.env locais são gitignored)
+├── knowledge/                      # conteúdo compartilhado de boas práticas (DDD, SOLID, Clean Architecture/Code, Design Patterns, Database, refinamento, negócio) — não é skill, só .md, referenciado pelas skills practices-*
 ├── .claude/skills/jira-sprint/     # skill que lê/cria settings/jira/boards.json e consulta a sprint atual
-└── .claude/skills/jira-refine/     # skill que gera refinamento de negócio/técnico de uma issue (leitura only no Jira)
+├── .claude/skills/jira-refine/     # skill que gera refinamento de negócio/técnico de uma issue (leitura only no Jira)
+├── .claude/skills/practices-code/         # skill roteadora: aplica knowledge/{ddd,solid,clean-architecture,clean-code,design-patterns,database}.md
+├── .claude/skills/practices-refinement/   # skill roteadora: aplica knowledge/refinement.md
+└── .claude/skills/practices-business/     # skill roteadora: aplica knowledge/business.md
 ```
 
 ## Guardrails
@@ -65,6 +69,18 @@ Criar branch é sempre livre. Comandos configurados (`commit`, `push` por padrã
 - Cache dos refinamentos no diretório resolvido (padrão ou `outputDir`): `raw.json`, `confluence.md` (se houver link citado), `business.md`, `technical.md`, `final-<uuid>.md` (com checklist de implementação ao final — histórico preservado, cada rodada gera um novo `final-<uuid>.md`).
 - **Somente leitura no Jira** — a skill nunca chama tool de escrita do Atlassian Rovo (`editJiraIssue`, `addCommentToJiraIssue`, `createIssueLink`, `transitionJiraIssue`, etc.), nem na task nem no épico. O refinamento é um artefato pro harness/agente (ponto de partida pra desenvolver ou delegar a task), não um artefato pro Jira.
 - Mesma exigência de auth do MCP Atlassian Rovo da `jira-sprint` (Confluence usa o mesmo conector).
+
+### Boas práticas (knowledge/ + skills de prática)
+
+- `knowledge/*.md`: conteúdo compartilhado, não é skill — cada arquivo é um checklist prático (regra, sintoma de violação, direção do fix) de um tópico: `ddd.md`, `solid.md`, `clean-architecture.md`, `clean-code.md`, `design-patterns.md`, `database.md`, `refinement.md`, `business.md`.
+- `knowledge/technical-refinement-template.md`: estrutura ADR-lite (contexto, decisão recomendada, alternativas consideradas e por que foram descartadas, componentes impactados, diagrama, riscos & mitigação, rollout/reversibilidade, requisitos não-funcionais, dependências, alçada) pra quando o refinamento técnico é entregue pro time decidir/revisar, não só pra uso pessoal — usado por `practices-code` e pela etapa técnica do `jira-refine`.
+- 3 skills roteadoras leem esse conteúdo sob demanda (progressive disclosure — o `SKILL.md` fica fino, o conteúdo pesado vive separado):
+  - `practices-code` (`.claude/skills/practices-code/SKILL.md`): DDD, SOLID, Clean Architecture, Clean Code, Design Patterns, Database.
+  - `practices-refinement` (`.claude/skills/practices-refinement/SKILL.md`): formato/testabilidade de critério de aceite.
+  - `practices-business` (`.claude/skills/practices-business/SKILL.md`): modelagem/linguagem de negócio.
+- Cada uma funciona **standalone** (dispara por pedido explícito, ex. "revisa esse código com SOLID") **e** é invocada internamente pelo `jira-refine`: `practices-business`/`practices-refinement` na etapa de refinamento de negócio, `practices-code` na etapa de refinamento técnico.
+- Guarda contra ruído: cada skill tem `## Quando aplicar` / `## Quando não aplicar` no corpo — não deveria disparar (nem sozinha nem forçar checklist inteiro) num fix pontual de poucas linhas.
+- Adicionar tópico novo: só criar o `.md` em `knowledge/` e referenciar na tabela da skill roteadora correspondente — não precisa nova skill.
 
 ### Serena — navegação semântica de código (MCP)
 
