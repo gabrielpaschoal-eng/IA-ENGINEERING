@@ -1,1 +1,2 @@
-hooks/bin/
+settings/jira/boards.json
+__pycache__/
