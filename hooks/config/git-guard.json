@@ -1,0 +1,5 @@
+{
+  "protectedBranches": ["main", "master"],
+  "blockedCommands": ["commit", "push"],
+  "exemptRepos": []
+}
